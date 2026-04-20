@@ -3,3 +3,207 @@ title: "Tutors"
 format: html
 ---
 
+# Frequent course tutor gets requested
+# return students and what courses 
+# tutor with more return students 
+# evaluations
+# location spot 
+# appointments times usual ones
+# meeting duration -> hovering??? i want to know if there are some subjects that take longer 
+
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+```
+
+```{r}
+tutoring = read_excel("data/MAIN_DATA.xlsx")
+head(tutoring)
+```
+
+```{r}
+tutoring = tutoring |>
+  mutate(
+    start_time = parse_date_time(`Appointment Start Time`, orders = "I:M p"),
+    end_time = parse_date_time(`Appointment End Time`, orders= "I:M p"),
+    appointment_minutes = as.numeric(end_time - start_time, units = "mins"),
+    start_hour = hour(start_time)
+  )
+```
+
+
+```{r}
+# tutor workload
+top_tutors = tutoring |>
+  group_by(`Tutor Id`)|>
+  summarise(total_appointments = n()) |>
+  arrange(desc(total_appointments)) |>
+  slice(1:10)
+
+ggplot(top_tutors,
+       aes(x = reorder(`Tutor Id`, total_appointments),
+           y = total_appointments)) +
+  geom_col()+
+  coord_flip() +
+  labs(
+    title = "Top Tutors by Number of Appointments",
+    x = "Tutor ID",
+    y = "Number of Appointments"
+  )
+
+tutoring |>
+  group_by(`Tutor Id`) |>
+  summarise(total_appointments = n()) |>
+  ggplot(aes(x = total_appointments)) +
+  geom_histogram(binwidth = 5) +
+  labs(
+    title = "Distribution of Appointments Across Tutors",
+    x = "Number of Appointments",
+    y = "Number of Tutors"
+  )
+```
+
+
+
+
+```{r}
+
+tutoring = tutoring |>
+  mutate(
+    course_combined = if_else(is.na(COURSE), Class, COURSE)) |>
+  mutate(
+    course_group = case_when(
+      is.na(course_combined)~"Missing",
+      str_detect(course_combined, "STAT|Stat|stat") ~ "Statistics",
+      str_detect(course_combined, "CHEM|Chem|chem") ~ "Chemistry",
+      str_detect(course_combined, "BIO|Bio|bio") ~ "Biology",
+      str_detect(course_combined,"ECON|Econ|econ|Financial Accounting|ACC 203 Financial Accounting") ~ "Economics",
+      str_detect(course_combined,"PSYC|Psyc|psyc") ~ "Psychology",
+      str_detect(course_combined,"PHYS|Phys|phys") ~ "Physics",
+      str_detect(course_combined,"MATH|Math|math|Calculus 1|Calculus 2|Multivariable Calculus")~ "Mathematics",
+      str_detect(course_combined,"CS|Computer|cs") ~ "Computer Science",
+      str_detect(course_combined,"SPAN|Spanish|spanish")  ~ "Spanish",
+      str_detect(course_combined,"SSES|Environment|General Ecology")  ~ "Environmental Sciences",
+      str_detect(course_combined,"PHIL|philosophy")  ~ "Philosophy",
+      str_detect(course_combined,"GER|German") ~ "German",
+      str_detect(course_combined,"FREN|French|FR") ~ "French",
+      str_detect(course_combined,"GOVT")  ~ "Government",
+      TRUE~"Other"
+    )
+  )
+
+tutoring |>
+  filter(course_group == "Other") |>
+  group_by(if_else(is.na(COURSE), Class, COURSE))|>
+  summarise(total = n())|>
+  arrange(desc(total))|>
+  slice(1:30)
+
+# Remove "Missing- 1101" which are students that didnt add anything 
+tutor_specialization = tutoring |>
+  filter(course_group != "Missing",
+         course_group != "Other",
+         `Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  group_by(`Tutor Id`, course_group) |>
+  summarise(total = n(), .groups = "drop") |>
+  ungroup()
+
+tutor_order = top_tutors|>
+  pull(`Tutor Id`)
+
+course_order = tutor_specialization|>
+  group_by(course_group)|>
+  summarise(total_subject = sum(total))|>
+  arrange(desc(total_subject))|>
+  pull(course_group)
+
+tutor_specialization = tutor_specialization |>
+  mutate(
+    `Tutor Id` = factor(`Tutor Id`, levels = tutor_order),
+    course_group=factor(course_group, levels = course_order)
+  )
+```
+
+```{r}
+# tutor specialization
+ggplot(tutor_specialization,
+       aes(x=`Tutor Id`, y= course_group, fill = total))+
+  geom_tile( color = "white", linewidth = 0.4)+ 
+  scale_fill_viridis_c()+
+  labs(
+    title = "Tutor Specialization Across Subject Areas",
+    x = "Tutor Id",
+    y = "Course Group",
+    fill = "Appointments"
+  )+
+  theme_minimal()
+```
+
+## appointment times
+```{r}
+ggplot(tutoring, aes(x = start_hour))+
+  geom_histogram(binwidth = 1)+
+  labs(
+    title = "Distribution of Appointment Start Times",
+    x = "Hour of the Day",
+    y = "Number of Appointments"
+  )+
+  theme_minimal()
+```
+
+## session duration
+```{r}
+tutoring |>
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`,
+         !is.na(start_hour))|>
+  ggplot(aes(x = start_hour))+
+  geom_histogram(binwidth = 1)+
+  facet_wrap(~`Tutor Id`)+
+  labs(
+    title = "Appointment Start Times for Top Tutors",
+    x = "Hour of the Day",
+    y= "Number of Appointments"
+  ) +
+  theme_minimal()
+
+
+### important to bring up this is a disadvantage and probably something to reinforce
+tutoring |> 
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  group_by(`Tutor Id`)|>
+  summarise(
+    total_rows = n(),
+    non_missing_times = sum(!is.na(start_hour))
+  )
+```
+
+
+## returning students per tutor -> how many students returned to the same tutor more than once
+```{r}
+same_tutor = tutoring |>
+  group_by(`Student id`, `Tutor Id`) |>
+  summarise(visits_tutor = n(), .groups = "drop") |>
+  filter(visits_tutor > 1) |>
+  group_by(`Tutor Id`) |>
+  summarise(
+    same_return = n(),
+    .groups = "drop")|>
+  arrange(desc(same_return))
+
+same_tutor
+
+same_tutor|>
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  ggplot(aes(x = reorder(`Tutor Id`, same_return),
+             y = same_return))+
+  geom_col()+
+  coord_flip()+
+  labs(title = "Students Who Returned to the Same Tutor",
+       x = "Tutor Id",
+       y = "Number of Students")+
+  theme_minimal()
+```
+
+## appointment times by top tutors 
