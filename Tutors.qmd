@@ -184,12 +184,11 @@ tutoring |>
 ```{r}
 same_tutor = tutoring |>
   group_by(`Student id`, `Tutor Id`) |>
-  summarise(visits_tutor = n(), .groups = "drop") |>
+  summarise(visits_tutor = n()) |>
   filter(visits_tutor > 1) |>
   group_by(`Tutor Id`) |>
   summarise(
-    same_return = n(),
-    .groups = "drop")|>
+    same_return = n())|>
   arrange(desc(same_return))
 
 same_tutor
@@ -206,4 +205,63 @@ same_tutor|>
   theme_minimal()
 ```
 
-## appointment times by top tutors 
+# Observing it with rate
+```{r}
+student_tutors = tutoring |>
+  group_by(`Tutor Id`,`Student id`) |>
+  summarise()|>
+  group_by(`Tutor Id`) |>
+  summarise(total_students =n())
+
+tutors_rate = same_tutor |>
+  left_join(student_tutors, by ="Tutor Id") |>
+  mutate(return_rate = same_return/total_students)|>
+  arrange(desc(return_rate))
+
+tutors_rate |>
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  ggplot(aes(x = reorder(`Tutor Id`, return_rate),
+             y = return_rate)) +
+  geom_col()+
+  coord_flip() +
+  labs(
+    title = "Rate of Students Returning to their Assigned Tutor",
+    x = "Tutor Id",
+    y = "Return Rate")+
+  theme_minimal()
+```
+
+# worload concentration -> is work concentrated only in few tutors
+
+```{r}
+#cumsum function found in chapter 8 - refine your plot s in our data viz book 
+tutor_workload = tutoring |>
+  group_by(`Tutor Id`) |>
+  summarise(total_appointments = n())|>
+  arrange(desc(total_appointments))
+
+tutor_workload = tutor_workload |>
+  mutate(
+    cum = cumsum(total_appointments)/sum(total_appointments),
+    tutor_rank = row_number()
+  )
+
+cutoff50 = tutor_workload|>
+  filter(cum >+0.5) |>
+  slice(1)
+
+ggplot(tutor_workload,
+       aes(x=tutor_rank, y = cum)) +
+  geom_line()+
+  geom_hline(yintercept = 0.5, linetype = "dashed")+
+  geom_vline(xintercept = cutoff50$tutor_rank, linetype = "dashed")+
+  geom_point(data = cutoff50,
+             aes(x = tutor_rank, y =cum),
+             size = 3)+
+  labs(
+    title = "Cumulative Share of Tutoring Workload",
+    x = "Tutor Rank",
+    y = "Cumulative Share of Appointments")+
+  theme_minimal()
+```
+
