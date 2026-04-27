@@ -265,3 +265,56 @@ ggplot(tutor_workload,
   theme_minimal()
 ```
 
+
+## are top tutors responsible for most of the deman in certain subjects? ---> i dont think this one is ccurate
+
+```{r}
+subject_tt = tutoring |>
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`,
+         course_group!="Missing",
+         course_group!="Other")|>
+  group_by(course_group)|>
+  summarise(
+    top_tutors_appt = n()
+  )
+
+subject_all = tutoring |>
+  filter(course_group!="Missing",
+  course_group!="Other")|>
+  group_by(course_group)|>
+  summarise(
+    total_appointments= n()
+  )
+
+subject_share = subject_tt |>
+  left_join(subject_all, by = "course_group")|>
+  mutate(
+    share_top = top_tutors_appt/total_appointments
+  )
+
+ggplot(subject_share, aes(x = reorder(course_group, share_top),
+                          y= share_top)) +
+  geom_col()+
+  coord_flip()+
+  labs(title = "Share of Appointments Handled by Top Tutors",
+       x = "Subject Area",
+       y = "Proportion")+
+  theme_minimal()
+```
+
+
+# do tutors with more appointments are they the ones that have the largest returning number of students? ---> issues with same_tutor_rate 
+```{r}
+tutor_combined = tutor_workload |>
+  left_join(same_tutor, by = "Tutor Id")
+
+ggplot(tutor_combined, aes(x = total_appointments, y = return_rate))+
+  geom_point()+
+  labs(
+    title = "Tutor Workload vs Same Tutor Return Rate",
+    x = "Total Appointments",
+    y= "Return Rate")+
+  theme_minimal()
+  
+```
+
