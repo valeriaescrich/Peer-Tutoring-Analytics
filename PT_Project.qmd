@@ -1,0 +1,271 @@
+---
+title: "SLU Peer Tutoring Program Analysis"
+format: revealjs
+---
+
+
+
+## Data Introduction
+
+This project is an alaysis of the information compiled from peer tutoring request forms from St. Lawrence University.
+
+The data includes the following variables:
+
+-   Duration to fill form (in seconds)	
+-   Location
+-   Class	Professor	
+-   Subject
+-   Appointment Start & End Time
+
+
+## Data Introduction
+Created for ethical reasons:
+
+-   Tutor Id	
+-   Student id	
+-   Class_Year		
+
+```{r}
+#| include: false
+library(tidyverse)
+library(readxl)
+library(lubridate)
+
+tutoring = read_excel("data/MAIN_DATA.xlsx")
+
+
+tutoring = tutoring |>
+  mutate(
+    start_time = parse_date_time(`Appointment Start Time`, orders = "I:M p"),
+    end_time = parse_date_time(`Appointment End Time`, orders= "I:M p"),
+    appointment_minutes = as.numeric(end_time - start_time, units = "mins"),
+    start_hour = hour(start_time)
+  )
+
+tutoring = tutoring |>
+  mutate(
+    course_combined = if_else(is.na(COURSE), Class, COURSE)) |>
+  mutate(
+    course_group = case_when(
+      is.na(course_combined)~"Missing",
+      str_detect(course_combined, "STAT|Stat|stat") ~ "Statistics",
+      str_detect(course_combined, "CHEM|Chem|chem") ~ "Chemistry",
+      str_detect(course_combined, "BIO|Bio|bio") ~ "Biology",
+      str_detect(course_combined,"ECON|Econ|econ|Financial Accounting|ACC 203 Financial Accounting") ~ "Economics",
+      str_detect(course_combined,"PSYC|Psyc|psyc") ~ "Psychology",
+      str_detect(course_combined,"PHYS|Phys|phys") ~ "Physics",
+      str_detect(course_combined,"MATH|Math|math|Calculus 1|Calculus 2|Multivariable Calculus")~ "Mathematics",
+      str_detect(course_combined,"CS|Computer|cs") ~ "Computer Science",
+      str_detect(course_combined,"SPAN|Spanish|spanish")  ~ "Spanish",
+      str_detect(course_combined,"SSES|Environment|General Ecology")  ~ "Environmental Sciences",
+      str_detect(course_combined,"PHIL|philosophy")  ~ "Philosophy",
+      str_detect(course_combined,"GER|German") ~ "German",
+      str_detect(course_combined,"FREN|French|FR") ~ "French",
+      str_detect(course_combined,"GOVT")  ~ "Government",
+      TRUE~"Other"
+    )
+  )
+
+top_tutors = tutoring |>
+  group_by(`Tutor Id`)|>
+  summarise(total_appointments = n()) |>
+  arrange(desc(total_appointments)) |>
+  slice(1:10)
+```
+
+
+## Question(s) of Interest
+
+ **TUTOR POV** 
+
+**STUDENTS POV**
+
+How is tutoring demand structured in SLU's Peer Tutoring Program, and what patterns emerge in both tutor workload and student engagement?
+
+## Finding 1 -> Tutor Workload Is Concentrated
+```{r}
+#| echo: false
+#cumsum function found in chapter 8 - refine your plot s in our data viz book 
+tutor_workload = tutoring |>
+  group_by(`Tutor Id`) |>
+  summarise(total_appointments = n())|>
+  arrange(desc(total_appointments))
+
+tutor_workload = tutor_workload |>
+  mutate(
+    cum = cumsum(total_appointments)/sum(total_appointments),
+    tutor_rank = row_number()
+  )
+
+cutoff50 = tutor_workload|>
+  filter(cum >=0.5) |>
+  slice(1)
+
+ggplot(tutor_workload,
+       aes(x=tutor_rank, y = cum)) +
+  geom_line()+
+  geom_hline(yintercept = 0.5, linetype = "dashed")+
+  geom_vline(xintercept = cutoff50$tutor_rank, linetype = "dashed")+
+  geom_point(data = cutoff50,
+             aes(x = tutor_rank, y =cum),
+             size = 3, color = "red")+
+  labs(
+    title = "Cumulative Share of Tutoring Workload",
+    x = "Tutor Rank",
+    y = "Cumulative Share of Appointments")+
+  theme_minimal(base_size = 24)
+```
+
+## Finding 2 -> Top Tutors Specialize by Subject
+```{r}
+#| echo: false
+
+# Remove "Missing- 1101" which are students that didnt add anything 
+tutor_specialization = tutoring |>
+  filter(course_group != "Missing",
+         course_group != "Other",
+         `Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  group_by(`Tutor Id`, course_group) |>
+  summarise(total = n(), .groups = "drop") |>
+  ungroup()
+
+tutor_order = top_tutors|>
+  pull(`Tutor Id`)
+
+course_order = tutor_specialization|>
+  group_by(course_group)|>
+  summarise(total_subject = sum(total))|>
+  arrange(desc(total_subject))|>
+  pull(course_group)
+
+tutor_specialization = tutor_specialization |>
+  mutate(
+    `Tutor Id` = factor(`Tutor Id`, levels = tutor_order),
+    course_group=factor(course_group, levels = course_order)
+  )
+
+# tutor specialization
+ggplot(tutor_specialization,
+       aes(x=`Tutor Id`, y= course_group, fill = total))+
+  geom_tile( color = "white", linewidth = 0.4)+ 
+  scale_fill_viridis_c()+
+  labs(
+    title = "Tutor Specialization Across Subject Areas",
+    x = "Tutor Id",
+    y = "Course Group",
+    fill = "Appointments"
+  )+
+  theme_minimal(base_size = 26)
+```
+
+
+## Finding 3 -> Students Return to Same Tutor
+```{r}
+#| echo: false
+## returning students per tutor -> how many students returned to the same tutor more than once
+
+same_tutor = tutoring |>
+  group_by(`Student id`, `Tutor Id`) |>
+  summarise(visits_tutor = n()) |>
+  filter(visits_tutor > 1) |>
+  group_by(`Tutor Id`) |>
+  summarise(
+    same_return = n())|>
+  arrange(desc(same_return))
+
+
+
+# Observing it with rate
+
+student_tutors = tutoring |>
+  group_by(`Tutor Id`,`Student id`) |>
+  summarise()|>
+  group_by(`Tutor Id`) |>
+  summarise(total_students =n())
+
+tutors_rate = same_tutor |>
+  left_join(student_tutors, by ="Tutor Id") |>
+  mutate(return_rate = same_return/total_students)|>
+  arrange(desc(return_rate))
+
+tutors_rate |>
+  filter(`Tutor Id` %in% top_tutors$`Tutor Id`)|>
+  ggplot(aes(x = reorder(`Tutor Id`, return_rate),
+             y = return_rate)) +
+  geom_col(fill = "brown4")+
+  coord_flip() +
+  labs(
+    title = "Rate of Students Returning to their Assigned Tutor",
+    x = "Tutor Id",
+    y = "Return Rate")+
+  theme_minimal(base_size = 24)
+```
+
+
+## Finding 4 -> Repeat Support Happens in Specific Subjects
+```{r}
+#| echo: false
+# returning behavior: same course same tutor
+
+stu_return = tutoring |>
+  group_by(`Student id`, course_group, `Tutor Id`)|>
+  summarise(visit_sameCT = n())|>
+  filter(visit_sameCT>1)
+
+stu_return |>
+  group_by(course_group)|>
+  summarise(total_sameCT = n())|>
+  filter(course_group != "Missing")|>
+  arrange(desc(total_sameCT))|>
+  ggplot(aes(x = reorder(course_group, total_sameCT),
+             y = total_sameCT,
+             fill = total_sameCT))+
+  geom_col()+
+  coord_flip()+
+  scale_fill_viridis_c() +
+  labs(
+    title = "Repeated Same Course and Same Tutor Returns by Subject",
+    x = "Subject Area",
+    y = "Number of Repeat Student-Tutor Pairings",
+    fill = "Returns"
+  )+
+  theme_minimal(base_size = 24)
+```
+
+## Finding 5 -> Tutor Demands Varies by Class Year
+```{r}
+#| echo: false
+# class year usage
+
+tutoring = tutoring |>
+  mutate(Class_Year_Code =as.numeric(Class_Year_Code))
+
+tutoring = tutoring |>
+  filter(!is.na(Class_Year_Code))
+
+tutoring = tutoring |>
+  mutate( grad_year = Class_Year_Code + 4)
+
+class_year = tutoring |>
+  group_by(grad_year)|>
+  summarise(total_requests = n())|>
+  filter(total_requests >10)|>
+  arrange(grad_year)
+
+ggplot(class_year, aes(x=as.factor(grad_year), y=total_requests))+
+  geom_segment(aes(x = as.factor(grad_year), xend = as.factor(grad_year), y = 0, yend = total_requests), color = "#8B5A2B")+
+  geom_point(size = 4, color = "#8B1E1E")+
+  labs(
+    title = "Tutoring Requests by Student Class Year",
+    x = "Class Year Code",
+    y = "Number of Requests")+
+  theme_minimal(base_size = 24)+
+  coord_flip()
+```
+
+
+## What Now?
+-   Balance Tutor Workload
+-   Strengthen subject-based matching
+-   Support repeat tutoring relationships
+-   Improve data collection

@@ -413,3 +413,4 @@ ggplot(tutoring,
   theme_minimal()
 ```
 
+to get some ideas of color i could use i input on gemini "give me list of color blind friendly colors for scarlett and brown"
