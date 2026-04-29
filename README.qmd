@@ -1,0 +1,10 @@
+---
+title: "README"
+author: "Valeria Escrich"
+format: gfm
+---
+## Data
+
+## Questions
+
+## Graph Tite
