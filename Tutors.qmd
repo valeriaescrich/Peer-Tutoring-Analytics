@@ -315,6 +315,101 @@ ggplot(tutor_combined, aes(x = total_appointments, y = return_rate))+
     x = "Total Appointments",
     y= "Return Rate")+
   theme_minimal()
+
+## attempt with not using rate?
   
+```
+
+# students section 
+
+```{r}
+# class year usage
+
+tutoring = tutoring |>
+  mutate(Class_Year_Code =as.numeric(Class_Year_Code))
+
+tutoring = tutoring |>
+  filter(!is.na(Class_Year_Code))
+
+tutoring = tutoring |>
+  mutate( grad_year = Class_Year_Code + 4)
+
+class_year = tutoring |>
+  group_by(grad_year)|>
+  summarise(total_requests = n())|>
+  filter(total_requests >10)|>
+  arrange(grad_year)
+
+ggplot(class_year, aes(x=as.factor(grad_year), y=total_requests))+
+  geom_segment(aes(x = as.factor(grad_year), xend = as.factor(grad_year), y = 0, yend = total_requests), color = "blue")+
+  geom_point(size = 4, color = "green")+
+  labs(
+    title = "Tutoring Requests by Student Class Year",
+    x = "Class Year Code",
+    y = "Number of Requests")+
+  theme_minimal()
+```
+
+
+```{r}
+# Duration to fill out the form - exposing how easy of a resource it is and can we improve
+
+tutor_sec = tutoring |>
+  filter(`Duration to fill form (in seconds)`<=2000)
+
+ggplot(tutoring, aes(x = as.factor(grad_year),
+                     y = `Duration to fill form (in seconds)`))+
+  geom_boxplot(fill = "red", alpha = 0.7) +
+  coord_cartesian(ylim = c(0, 1000))+
+  labs(
+    title = " Time Spent Filling Out the Tutoring Request Form",
+    x = "Class Year",
+    y = "Duration to Fill Form in Seconds")+
+  theme_minimal()
+  
+```
+
+
+```{r}
+# returning behavior: same course same tutor
+
+stu_return = tutoring |>
+  group_by(`Student id`, course_group, `Tutor Id`)|>
+  summarise(visit_sameCT = n())|>
+  filter(visit_sameCT>1)
+
+stu_return |>
+  group_by(course_group)|>
+  summarise(total_sameCT = n())|>
+  arrange(desc(total_sameCT))|>
+  ggplot(aes(x = reorder(course_group, total_sameCT),
+             y = total_sameCT,
+             fill = total_sameCT))+
+  geom_col()+
+  coord_flip()+
+  scale_fill_viridis_c() +
+  labs(
+    title = "Repeated Same Course and Same Tutor Returns by Subject",
+    x = "Subject Area",
+    y = "Number of Repeat Student-Tutor Pairings",
+    fill = "Returns"
+  )+
+  theme_minimal()
+```
+
+```{r}
+ggplot(tutoring,
+       aes(x = LocationLongitude,
+           y = LocationLatitude,
+           color = course_group)) +
+  geom_point(alpha = 0.4) +
+  scale_color_viridis_d()+
+  labs(
+    title = "Location Patterns for Tutoring",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Subject Area"
+  )+
+  theme_minimal()
 ```
 

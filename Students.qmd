@@ -1,0 +1,32 @@
+---
+title: "Students"
+format: html
+---
+
+# class year
+
+#location of meeting
+# duration to fill the form of requesting a tutor 
+# returning behavior : is it same course and same tutor? 
+# visualizations abot student behavior
+
+
+```{r}
+# class year usage
+class_year = tutoring |>
+  filter(!is.na(Class_Year_Code)) |>
+  group_by(Class_Year_Code)|>
+  summarise(total_requests = n())|>
+  arrange(Class_Year_Code)
+
+ggplot(class_year, aes(x=class_year, y=total_requests))+
+  geom_segment(aes(x = class_year, xend = Class_Year_Code, y = 0, yend = total_requests), color = "blue")+
+  geom_point(size = 4, color = "green")+
+  labs(
+    title = "Tutoring Requests by Student Class Year",
+    x = "Class Year Code",
+    y = "Number of Requests")+
+  theme_minimal()
+```
+
+
