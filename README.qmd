@@ -5,7 +5,7 @@ format: gfm
 ---
 ## Data
 
-This project uses St. Lawrence University Peer Tutoring Program appointment data. The dataset includes information on tutor and student IDs, course subjects, appointment times, class year, location, and form completition time. 
+This project uses St. Lawrence University Peer Tutoring Program appointment data. The dataset includes information on tutor and student IDs, course subjects, appointment times, class year, location, and form completion time. 
 
 The data was cleaned and structures by grouping courses into broader subject areas, making student and tutor names anonymous, and modifying class years. Some variables,such as location, were expluded from the analysis due to lack of reliable variables.
 
@@ -25,15 +25,15 @@ This figure highlights how tutoring appointments are distributed across subject 
 
 ```{r}
 #| echo: false
-
+#| message: false
+#| warning: false
 
 library(tidyverse)
 library(readxl)
 library(lubridate)
-library(plotly)
+
 
 tutoring = read_excel("data/MAIN_DATA.xlsx")
-head(tutoring)
 
 tutoring = tutoring |>
   mutate(
@@ -76,12 +76,7 @@ tutoring = tutoring |>
     )
   )
 
-tutoring |>
-  filter(course_group == "Other") |>
-  group_by(if_else(is.na(COURSE), Class, COURSE))|>
-  summarise(total = n())|>
-  arrange(desc(total))|>
-  slice(1:30)
+
 
 # Remove "Missing- 1101" which are students that didnt add anything 
 tutor_specialization = tutoring |>
@@ -108,20 +103,17 @@ tutor_specialization = tutor_specialization |>
   )
 
 figure3 = ggplot(tutor_specialization,
-       aes(x=`Tutor Id`, y= course_group, fill = total,
-           text = paste("Tutor: ", `Tutor Id`,
-                        "Subject: ", course_group,
-                        "Appointments: ", total)))+
+       aes(x=`Tutor Id`, y= course_group, fill = total))+
   geom_tile( color = "white", linewidth = 0.4)+ 
   scale_fill_viridis_c()+
   labs(
-    title = "Figure 3. Tutor Specialization Across Subject Areas",
+    title = "Tutor Specialization Across Subject Areas",
     x = "Tutor Id",
     y = "Course Group",
     fill = "Appointments"
   )+
   theme_minimal()
 
-ggplotly(figure3, tooltip = "text")
+figure3
 ```
 
