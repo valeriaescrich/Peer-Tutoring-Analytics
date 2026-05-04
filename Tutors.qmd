@@ -62,7 +62,8 @@ tutoring |>
     title = "Distribution of Appointments Across Tutors",
     x = "Number of Appointments",
     y = "Number of Tutors"
-  )
+  ) +
+  theme_minimal()
 ```
 
 
@@ -414,3 +415,24 @@ ggplot(tutoring,
 ```
 
 to get some ideas of color i could use i input on gemini "give me list of color blind friendly colors for scarlett and brown"
+
+```{r}
+return_data = tutoring |>
+  group_by(`Student id`, `Tutor Id`)|>
+  summarise(visits = n())|>
+  mutate(return_same_t = if_else(visits > 1, 1,0))
+
+model_data = tutoring |>
+  left_join(return_data, by = c("Student id", "Tutor Id"))
+
+model_data = model_data|>
+  filter(!is.na(start_hour),
+         !is.na(course_group))
+
+model = glm(return_same_t~ start_hour + course_group,
+            data = model_data,
+            family = "binomial")
+
+summary(model)
+```
+
