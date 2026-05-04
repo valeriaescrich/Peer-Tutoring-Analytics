@@ -21,7 +21,7 @@ This project explores peer tutoring program functions from both tutors and stude
 
 ## Tutor Specialization Across Subject Areas
 
-this figure highlights how tutoring appointments are distributed across subject areas from the most active tutors, showing patterns of specialization and demand. 
+This figure highlights how tutoring appointments are distributed across subject areas from the most active tutors, showing patterns of specialization and demand. This project goes over this content and more in detail explanations of how the program is shaped by students. 
 
 ```{r}
 #| echo: false
