@@ -19,7 +19,9 @@ This project explores peer tutoring program functions from both tutors and stude
 -   When are tutoring appointments most likely to occur?
 -   How do student characteristics, such as class year, influence tutoring usage?
 
-## Graph
+## Tutor Specialization Across Subject Areas
+
+this figure highlights how tutoring appointments are distributed across subject areas from the most active tutors, showing patterns of specialization and demand. 
 
 ```{r}
 #| echo: false
